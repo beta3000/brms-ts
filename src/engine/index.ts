@@ -16,4 +16,5 @@ export { readFieldPath } from './field-access.js';
 export { evaluateCondition } from './evaluator.js';
 export { WorkingMemory } from './working-memory.js';
 export type { Unsubscribe, WorkingMemoryEvent, WorkingMemoryListener } from './working-memory.js';
+export { Agenda } from './agenda.js';
 export * from './rete/index.js';
