@@ -7,6 +7,7 @@
 
 export * from './model/index.js';
 export * from './engine/index.js';
+export * from './loader/index.js';
 
 /**
  * Public package name.
