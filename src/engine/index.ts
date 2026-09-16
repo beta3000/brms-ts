@@ -17,4 +17,7 @@ export { evaluateCondition } from './evaluator.js';
 export { WorkingMemory } from './working-memory.js';
 export type { Unsubscribe, WorkingMemoryEvent, WorkingMemoryListener } from './working-memory.js';
 export { Agenda } from './agenda.js';
+export { executeActions } from './executor.js';
+export { DEFAULT_CYCLE_LIMIT, ReteNetwork } from './network.js';
+export type { NetworkOptions } from './network.js';
 export * from './rete/index.js';
