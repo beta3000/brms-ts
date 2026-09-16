@@ -20,7 +20,6 @@ jobs:
       contents: write # create tags/commits and the GitHub release
       issues: write # comment on released issues
       pull-requests: write # comment on released PRs
-      id-token: write # enable npm publish --provenance via OIDC
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,6 +31,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          registry-url: https://registry.npmjs.org
           cache: npm
 
       - name: Pin npm to match the lockfile
@@ -56,6 +56,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: 'true'
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           HUSKY: '0' # disable git hooks for the automated release commit
         run: npx semantic-release
