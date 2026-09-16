@@ -1,0 +1,56 @@
+# Credit approval rules for the brms-ts example.
+#
+# Each application fact carries: id, income (annual), debt, age, and a
+# derived debtRatio + status the rules compute. Rules fire in salience order.
+rules:
+  # Highest priority: reject minors outright.
+  - name: reject-minor
+    salience: 100
+    noLoop: true
+    when:
+      kind: comparison
+      field: age
+      operator: lt
+      value: 18
+    then:
+      - { kind: modify, target: 0, attributes: { status: rejected, reason: underage } }
+      - { kind: invoke, function: notify, args: ['rejected: underage'] }
+
+  # Compute the debt-to-income ratio for adult applicants once.
+  - name: compute-debt-ratio
+    salience: 50
+    noLoop: true
+    when:
+      kind: and
+      conditions:
+        - { kind: comparison, field: age, operator: gte, value: 18 }
+        - { kind: predicate, predicate: needsRatio }
+    then:
+      - { kind: invoke, function: computeRatio }
+
+  # Approve applicants with a healthy income and low debt ratio.
+  - name: approve-low-risk
+    salience: 10
+    noLoop: true
+    when:
+      kind: and
+      conditions:
+        - { kind: comparison, field: income, operator: gte, value: 30000 }
+        - { kind: comparison, field: debtRatio, operator: lte, value: 0.35 }
+        - { kind: comparison, field: status, operator: eq, value: pending }
+    then:
+      - { kind: modify, target: 0, attributes: { status: approved, reason: low-risk } }
+      - { kind: invoke, function: notify, args: ['approved: low-risk'] }
+
+  # Otherwise, review applicants whose ratio has been computed but not decided.
+  - name: review-remaining
+    salience: 1
+    noLoop: true
+    when:
+      kind: and
+      conditions:
+        - { kind: comparison, field: status, operator: eq, value: pending }
+        - { kind: comparison, field: debtRatio, operator: gt, value: 0.35 }
+    then:
+      - { kind: modify, target: 0, attributes: { status: review, reason: high-debt-ratio } }
+      - { kind: invoke, function: notify, args: ['manual review: high debt ratio'] }
