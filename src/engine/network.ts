@@ -53,6 +53,7 @@ export class ReteNetwork {
   readonly #nodes: RuleNode[] = [];
   readonly #orderByRule = new Map<string, number>();
   readonly #cycleLimit: number;
+  #unsubscribe: (() => void) | undefined = undefined;
   /**
    * Name of the rule currently firing, used to enforce `no-loop`.
    */
@@ -85,7 +86,7 @@ export class ReteNetwork {
     for (const fact of workingMemory.getAll()) {
       this.#route({ type: 'inserted', fact });
     }
-    workingMemory.subscribe((event) => {
+    this.#unsubscribe = workingMemory.subscribe((event) => {
       this.#route(event);
     });
   }
@@ -118,6 +119,19 @@ export class ReteNetwork {
    */
   public get pendingActivations(): number {
     return this.#agenda.size;
+  }
+
+  /**
+   * Detaches the network from the working memory, stopping it from reacting to
+   * further fact changes. Call this before discarding a network or replacing it
+   * with one built over the same working memory.
+   */
+  public dispose(): void {
+    if (this.#unsubscribe !== undefined) {
+      this.#unsubscribe();
+      this.#unsubscribe = undefined;
+    }
+    this.#agenda.clear();
   }
 
   /**

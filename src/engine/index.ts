@@ -20,4 +20,6 @@ export { Agenda } from './agenda.js';
 export { executeActions } from './executor.js';
 export { DEFAULT_CYCLE_LIMIT, ReteNetwork } from './network.js';
 export type { NetworkOptions } from './network.js';
+export { RuleEngine } from './rule-engine.js';
+export type { RuleEngineOptions } from './rule-engine.js';
 export * from './rete/index.js';
