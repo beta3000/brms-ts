@@ -183,9 +183,10 @@ Releases are automated with
 `.github/workflows/ci.yml` GitHub Actions workflow. The `quality` job runs on
 every pull request and push to `main` (lint, typecheck, test, build, package
 checks); the `release` job runs only on pushes to `main` after `quality`
-passes, and publishes to npm and creates a GitHub Release. Set an `NPM_TOKEN`
-repository secret (an npm automation token) to enable publishing;
-`GITHUB_TOKEN` is provided automatically.
+passes, and publishes to npm (with provenance) and creates a GitHub Release.
+Set an `NPM_TOKEN` repository secret (an npm automation token) to enable
+publishing; `GITHUB_TOKEN` is provided automatically. Provenance requires the
+repository to be public.
 
 ## License
 
