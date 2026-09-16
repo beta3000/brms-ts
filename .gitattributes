@@ -1,0 +1,8 @@
+# Normaliza los finales de línea a LF en el repositorio (coherente con Prettier endOfLine=lf).
+* text=auto eol=lf
+
+# Archivos binarios: sin conversión.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary

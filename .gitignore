@@ -1,0 +1,24 @@
+# Dependencias
+node_modules
+
+# Artefactos de build
+dist
+coverage
+docs
+
+# Logs
+*.log
+npm-debug.log*
+
+# Entorno
+.env
+.env.*
+!.env.example
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea
+*.tsbuildinfo
