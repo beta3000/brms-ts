@@ -180,8 +180,10 @@ are validated by commitlint via a Husky `commit-msg` hook.
 
 Releases are automated with
 [semantic-release](https://semantic-release.gitbook.io/) through the
-`.github/workflows/ci.yml` GitHub Actions workflow. The `quality` job runs on
-every pull request and push to `main` (lint, typecheck, test, build, package
+`.github/workflows/ci.yml` GitHub Actions workflow. An `authorize` gate first
+checks that the pull-request author has write/admin access, so external fork
+PRs do not run CI unattended. The `quality` job then runs on every authorized
+pull request and push to `main` (lint, typecheck, test, build, package
 checks); the `release` job runs only on pushes to `main` after `quality`
 passes, and publishes to npm (with provenance) and creates a GitHub Release.
 Set an `NPM_TOKEN` repository secret (an npm automation token) to enable
