@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/beta3000/brms-ts/compare/v1.0.0...v1.0.1) (2026-09-16)
+
+
+### Bug Fixes
+
+* **ci:** publish GitHub releases with release notes ([1ec1703](https://github.com/beta3000/brms-ts/commit/1ec1703d784c3596ded5edd74980498d63b1c1cb))
+
 # 1.0.0 (2026-09-16)
 
 
