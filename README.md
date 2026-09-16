@@ -1,5 +1,10 @@
 # brms-ts
 
+[![npm version](https://img.shields.io/npm/v/brms-ts.svg?logo=npm&color=cb3837)](https://www.npmjs.com/package/brms-ts)
+[![npm downloads](https://img.shields.io/npm/dm/brms-ts.svg?logo=npm&color=cb3837)](https://www.npmjs.com/package/brms-ts)
+[![license](https://img.shields.io/npm/l/brms-ts.svg?color=blue)](LICENSE)
+[![types](https://img.shields.io/npm/types/brms-ts.svg?logo=typescript)](https://www.npmjs.com/package/brms-ts)
+
 A business rule management engine for TypeScript, inspired by Drools. Declarative
 rules are written in JSON or YAML and executed by a forward-chaining inference
 engine (RETE-style) with an incremental agenda, salience-based conflict
