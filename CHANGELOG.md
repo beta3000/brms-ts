@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/beta3000/brms-ts/compare/v1.0.1...v1.0.2) (2026-09-16)
+
+
+### Bug Fixes
+
+* **ci:** upgrade checkout and setup-node to v5 ([28e1854](https://github.com/beta3000/brms-ts/commit/28e185457311166fc3d3012d3702dff12a5717c4))
+
 ## [1.0.1](https://github.com/beta3000/brms-ts/compare/v1.0.0...v1.0.1) (2026-09-16)
 
 

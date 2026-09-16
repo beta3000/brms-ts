@@ -1,6 +1,6 @@
 {
   "name": "brms-ts",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Motor de reglas de negocio en TypeScript estilo Drools: reglas declarativas JSON/YAML ejecutadas por un motor de inferencia forward-chaining tipo RETE.",
   "keywords": [
     "rules",
