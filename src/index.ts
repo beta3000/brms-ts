@@ -1,16 +1,14 @@
 /**
- * Punto de entrada público de **brms-ts**, un motor de reglas de negocio en
- * TypeScript inspirado en Drools.
- *
- * En esta etapa inicial solo se exporta metadata de la librería. Las
- * exportaciones del motor (modelo de reglas, cargador, `RuleEngine`, etc.) se
- * incorporan en las siguientes iteraciones del desarrollo.
+ * Public entry point of **brms-ts**, a business rule management engine in
+ * TypeScript inspired by Drools.
  *
  * @packageDocumentation
  */
 
+export * from './model/index.js';
+
 /**
- * Nombre público del paquete.
+ * Public package name.
  *
  * @public
  */
