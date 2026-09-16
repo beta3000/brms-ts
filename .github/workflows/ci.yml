@@ -13,8 +13,29 @@ permissions:
   contents: read
 
 jobs:
+  # Gate: only actors with write/admin permission may trigger PR runs. This
+  # keeps external fork PRs from consuming CI until a maintainer intervenes.
+  # Pushes to main (merges you control) always pass this gate.
+  authorize:
+    name: Authorize
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check actor permission
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          permission="$(gh api "repos/${{ github.repository }}/collaborators/${ACTOR}/permission" --jq '.permission' 2>/dev/null || echo none)"
+          echo "Actor '${ACTOR}' has permission: ${permission}"
+          if [ "${permission}" != "write" ] && [ "${permission}" != "admin" ]; then
+            echo "::error::Actor '${ACTOR}' lacks write access; refusing to run CI for this pull request."
+            exit 1
+          fi
+
   quality:
     name: Quality
+    needs: authorize
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -46,7 +67,7 @@ jobs:
 
   release:
     name: Release
-    needs: quality
+    needs: [authorize, quality]
     # Only publish on pushes to main, never on pull requests.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
