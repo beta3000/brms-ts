@@ -1,0 +1,58 @@
+name: Release
+
+# Publishes the package with semantic-release on every push to main.
+# Requires the repository secret NPM_TOKEN (an npm automation token) for the
+# actual publish. GITHUB_TOKEN is provided automatically by GitHub Actions.
+on:
+  push:
+    branches:
+      - main
+
+# Least-privilege by default; the release job widens what it needs.
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create tags/commits and the GitHub release
+      issues: write # comment on released issues
+      pull-requests: write # comment on released PRs
+      id-token: write # enable npm publish --provenance via OIDC
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # semantic-release needs full history and tags
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Verify package
+        run: npm run build && npm run check:pkg
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
+        run: npx semantic-release
