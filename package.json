@@ -14,6 +14,14 @@
   ],
   "license": "MIT",
   "author": "Ciro Rodriguez",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/beta3000/brms-ts.git"
+  },
+  "homepage": "https://github.com/beta3000/brms-ts#readme",
+  "bugs": {
+    "url": "https://github.com/beta3000/brms-ts/issues"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
