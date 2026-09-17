@@ -69,8 +69,9 @@ export type FactId = string;
  *
  * @public
  */
-export interface FactRecord<TAttributes extends FactAttributes = FactAttributes>
-  extends Fact<TAttributes> {
+export interface FactRecord<
+  TAttributes extends FactAttributes = FactAttributes,
+> extends Fact<TAttributes> {
   /**
    * Identifier assigned by the working memory.
    */
