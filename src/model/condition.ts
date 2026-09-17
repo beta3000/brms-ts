@@ -134,8 +134,4 @@ export interface NotCondition {
  * @public
  */
 export type Condition =
-  | ComparisonCondition
-  | PredicateCondition
-  | AndCondition
-  | OrCondition
-  | NotCondition;
+  ComparisonCondition | PredicateCondition | AndCondition | OrCondition | NotCondition;
