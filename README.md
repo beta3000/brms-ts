@@ -12,7 +12,12 @@ resolution, and `no-loop` control.
 
 - **Declarative rules** in JSON or YAML, validated against a schema.
 - **Rich conditions**: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`,
+  `between`, `startsWith`, `endsWith`, `matches`, `isEmpty`, and `exists`,
   combined with `and` / `or` / `not`, plus custom predicates.
+- **Fact type selectors**: a rule can be scoped to one fact type or a list of
+  types.
+- **Field references**: rule values can reference fields of the bound fact
+  (`{ $fact: 'path' }`).
 - **Actions**: insert, modify, and retract facts, or invoke registered functions.
 - **Forward chaining**: actions change facts, which re-trigger rules incrementally.
 - **Conflict resolution** by salience (highest first), tie-broken by rule order.
@@ -62,14 +67,16 @@ engine.fireAllRules();
 ## Rule format
 
 A rules document is an object with a `rules` array. Each rule has a `name`, an
-optional `salience` (default `0`) and `noLoop` flag (default `false`), a `when`
-condition, and a `then` list of actions.
+optional `salience` (default `0`), `noLoop` flag (default `false`), and `type`
+fact selector (default: any type), a `when` condition, and a `then` list of
+actions.
 
 ```yaml
 rules:
   - name: vip-discount
     salience: 10 # higher fires first
     noLoop: true # do not re-activate from its own changes
+    type: Order # only facts of this type (string, or array of alternatives)
     when:
       kind: and
       conditions:
@@ -82,17 +89,75 @@ rules:
 
 ### Conditions (`when`)
 
-| Kind         | Shape                              | Meaning                               |
-| ------------ | ---------------------------------- | ------------------------------------- |
-| `comparison` | `{ kind, field, operator, value }` | Compare a fact field against a value. |
-| `predicate`  | `{ kind, predicate, args? }`       | Call a registered custom predicate.   |
-| `and`        | `{ kind, conditions: [...] }`      | All sub-conditions must hold.         |
-| `or`         | `{ kind, conditions: [...] }`      | At least one sub-condition must hold. |
-| `not`        | `{ kind, condition }`              | The sub-condition must not hold.      |
+| Kind         | Shape                               | Meaning                                                                |
+| ------------ | ----------------------------------- | ---------------------------------------------------------------------- |
+| `comparison` | `{ kind, field, operator, value? }` | Compare a fact field against a value (no `value` for unary operators). |
+| `predicate`  | `{ kind, predicate, args? }`        | Call a registered custom predicate.                                    |
+| `and`        | `{ kind, conditions: [...] }`       | All sub-conditions must hold.                                          |
+| `or`         | `{ kind, conditions: [...] }`       | At least one sub-condition must hold.                                  |
+| `not`        | `{ kind, condition }`               | The sub-condition must not hold.                                       |
 
-Comparison operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in` (value is an
-array), `contains` (string substring or array membership). Fields support dot
-notation for nested attributes, e.g. `address.city`.
+Comparison operators:
+
+| Operator                              | Meaning                                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `eq`, `neq`, `gt`, `gte`, `lt`, `lte` | Equality and ordering. Ordering only compares number-to-number or string-to-string.        |
+| `in`                                  | The field value is a member of the given array (strict equality).                          |
+| `contains`                            | Substring match for strings; membership for arrays.                                        |
+| `between`                             | The field value lies within the inclusive `[min, max]` range (two numbers or two strings). |
+| `startsWith`, `endsWith`              | String prefix/suffix match.                                                                |
+| `matches`                             | The field string matches the given regular-expression pattern.                             |
+| `isEmpty`                             | The field is absent, `null`, `''`, `[]`, or `{}`. Takes no `value`.                        |
+| `exists`                              | The field is present and not `null`. Takes no `value`.                                     |
+
+Fields support dot notation for nested attributes, e.g. `address.city`.
+
+### Field references (`$fact`)
+
+Any rule value position accepts a reference to a field of the fact bound to the
+rule, written as `{ $fact: 'path' }`. The path uses the same dot notation as
+comparison fields:
+
+```yaml
+rules:
+  - name: within-limit
+    when: { kind: comparison, field: discount, operator: lte, value: { $fact: maxDiscount } }
+    then:
+      - { kind: invoke, function: notify, args: [{ $fact: id }] }
+```
+
+Accepted positions: the `value` of binary comparisons, `predicate.args`,
+`invoke.args`, and the attribute values of `insert` and `modify` actions (the
+`type` of an inserted fact is always a literal string). `$fact` is a reserved
+key: an object carrying it must be exactly a reference, otherwise the document
+is rejected. References that do not resolve behave like a missing field in
+comparisons (no match) and are replaced by `null` in action positions.
+
+### `matches` patterns
+
+Patterns are validated when rules are loaded: they must be a literal string (no
+`$fact` references), at most 256 characters, compilable, and free of a
+quantified group with an inner quantifier (for example `(a+)+`), which guards
+against catastrophic backtracking. The check is a conservative heuristic, not
+a linear-time proof: harmless patterns such as `(a+b|c)+` may be rejected, and
+ambiguity through alternation (for example `(a|aa)+`) is not detected, so
+review untrusted patterns like code.
+
+### Value semantics
+
+The comparison policy is deliberate and covered by tests:
+
+- No coercion: `1` and `'1'` are never equal, and ordering compares numbers
+  with numbers and strings with strings only; anything else does not match.
+- A missing field is not `null`: `eq` with `value: null` only matches an
+  explicit `null`, while `neq` matches the absent field.
+- `in` and `contains` use strict equality; `contains` is a substring test for
+  strings and membership for arrays.
+- `isEmpty` matches an absent field, `null`, `''`, `[]`, and `{}`; `0` and
+  `false` are not empty. `exists` matches anything present that is not `null`.
+- Binary operators with no `value` declared never match (programmatic rules
+  only; the loader rejects such documents). A stray `value` on `isEmpty` or
+  `exists` is ignored at runtime.
 
 ### Actions (`then`)
 
