@@ -104,3 +104,45 @@ describe('RuleNode', () => {
     expect(a?.id).not.toBe(b?.id);
   });
 });
+
+describe('RuleNode - fact type selector', () => {
+  it('ignores inserted facts of a non-selected type', () => {
+    const typed = defineRule({
+      name: 'typed',
+      type: 'Customer',
+      when: compare('age', 'gte', 18),
+      then: [],
+    });
+    const node = new RuleNode(typed, registry);
+    const delta = node.insert({ id: 'f0', type: 'Order', attributes: { age: 30 } });
+    expect(delta.added).toHaveLength(0);
+    expect(node.activations()).toHaveLength(0);
+  });
+
+  it('accepts any of the types in an array selector', () => {
+    const typed = defineRule({
+      name: 'typed',
+      type: ['Customer', 'Applicant'],
+      when: compare('age', 'gte', 18),
+      then: [],
+    });
+    const node = new RuleNode(typed, registry);
+    expect(
+      node.insert({ id: 'f0', type: 'Applicant', attributes: { age: 30 } }).added,
+    ).toHaveLength(1);
+    expect(node.insert({ id: 'f1', type: 'Order', attributes: { age: 30 } }).added).toHaveLength(0);
+  });
+
+  it('ignores modifications of a non-selected type', () => {
+    const typed = defineRule({
+      name: 'typed',
+      type: 'Customer',
+      when: compare('age', 'gte', 18),
+      then: [],
+    });
+    const node = new RuleNode(typed, registry);
+    const delta = node.modify({ id: 'f0', type: 'Order', attributes: { age: 30 } });
+    expect(delta.added).toHaveLength(0);
+    expect(delta.removed).toHaveLength(0);
+  });
+});
