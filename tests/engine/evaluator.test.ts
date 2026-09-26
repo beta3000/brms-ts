@@ -106,6 +106,19 @@ describe('evaluateCondition - extended comparison operators', () => {
       false,
     );
   });
+
+  it('keeps matching after the compiled-pattern cache evicts entries', () => {
+    const condition = compare('s', 'matches', '^victim$');
+    expect(evaluateCondition(condition, makeFact({ s: 'victim' }), registry)).toBe(true);
+    // Overflow the 256-entry cache so the entry above is evicted.
+    for (let i = 0; i < 300; i += 1) {
+      const value = `v${String(i)}`;
+      expect(
+        evaluateCondition(compare('s', 'matches', `^${value}$`), makeFact({ s: value }), registry),
+      ).toBe(true);
+    }
+    expect(evaluateCondition(condition, makeFact({ s: 'victim' }), registry)).toBe(true);
+  });
 });
 
 describe('evaluateCondition - unary operators', () => {
