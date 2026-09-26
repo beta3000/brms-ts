@@ -11,6 +11,7 @@
 
 import type { Action } from '../model/action.js';
 import type { FactRecord } from '../model/fact.js';
+import { resolveArgs, resolveAttributes } from './field-access.js';
 import type { FunctionRegistry } from './function-registry.js';
 import type { WorkingMemory } from './working-memory.js';
 
@@ -20,6 +21,11 @@ import type { WorkingMemory } from './working-memory.js';
  * In this single-fact activation model, the fact bound to the activation is at
  * target index `0`. Actions whose `target` refers to a non-existent binding are
  * ignored, so a malformed rule cannot crash the cycle.
+ *
+ * Rule values are resolved against the bound fact before they are applied:
+ * `{ $fact: 'path' }` references in `invoke` arguments and in the attribute
+ * values of `insert`/`modify` are replaced with the referenced value, or with
+ * `null` when the reference does not resolve.
  *
  * @param actions - The rule's `then` actions.
  * @param boundFact - The fact that activated the rule.
@@ -50,11 +56,14 @@ function executeAction(
 ): void {
   switch (action.kind) {
     case 'insert':
-      workingMemory.insert(action.fact);
+      workingMemory.insert({
+        type: action.fact.type,
+        attributes: resolveAttributes(action.fact.attributes, boundFact),
+      });
       return;
     case 'modify':
       if (action.target === 0) {
-        workingMemory.modify(boundFact.id, action.attributes);
+        workingMemory.modify(boundFact.id, resolveAttributes(action.attributes, boundFact));
       }
       return;
     case 'retract':
@@ -64,7 +73,7 @@ function executeAction(
       return;
     case 'invoke': {
       const fn = registry.getFunction(action.function);
-      fn([boundFact], action.args ?? []);
+      fn([boundFact], resolveArgs(action.args ?? [], boundFact));
       return;
     }
   }

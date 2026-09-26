@@ -122,17 +122,21 @@ export function resolveArgs(args: readonly FactValue[], fact: Fact): readonly Fa
  * Resolves the values of a rule attributes object against the fact bound to
  * the rule.
  *
- * Unresolved references are substituted with `null`. The `__proto__` key is
- * copied as an own data property so a crafted attribute name cannot mutate
+ * Unresolved references are substituted with `null`. Entries whose value is
+ * `undefined` are omitted (they carry no value to merge). The `__proto__` key
+ * is copied as an own data property so a crafted attribute name cannot mutate
  * the prototype of the result.
  *
  * @param attributes - Rule attributes to resolve.
  * @param fact - Fact bound to the rule.
  * @returns A new attributes object with the resolved values.
  */
-export function resolveAttributes(attributes: FactAttributes, fact: Fact): FactAttributes {
+export function resolveAttributes(attributes: Partial<FactAttributes>, fact: Fact): FactAttributes {
   const resolved: Record<string, FactValue> = {};
   for (const [key, value] of Object.entries(attributes)) {
+    if (value === undefined) {
+      continue;
+    }
     Object.defineProperty(resolved, key, {
       value: resolveValue(value, fact) ?? null,
       enumerable: true,
