@@ -1,3 +1,14 @@
+# [1.1.0](https://github.com/beta3000/brms-ts/compare/v1.0.2...v1.1.0) (2026-09-26)
+
+
+### Features
+
+* **engine:** resolve $fact references in action arguments and fact templates ([f6fe888](https://github.com/beta3000/brms-ts/commit/f6fe88893933479d74fd28b479d9e0112ba48b09))
+* **engine:** restrict rule activation to selected fact types ([78bc8ee](https://github.com/beta3000/brms-ts/commit/78bc8ee1f6cd1fd6c984ee39c7b2c976fa8e3279))
+* **loader:** add static guard against catastrophic-backtracking patterns ([27546d2](https://github.com/beta3000/brms-ts/commit/27546d26a08f5061a74852e43aafe93041caa831))
+* **loader:** validate rule type selectors, new operators and $fact references ([4faaaa5](https://github.com/beta3000/brms-ts/commit/4faaaa5f300b4da635158a3e72f17bb20aaf15a3))
+* **model:** add fact type selector, $fact references and extended comparison operators ([0d87f59](https://github.com/beta3000/brms-ts/commit/0d87f59a2fbfcc5de7e601c06fc858dba793e05d))
+
 ## [1.0.2](https://github.com/beta3000/brms-ts/compare/v1.0.1...v1.0.2) (2026-09-16)
 
 
