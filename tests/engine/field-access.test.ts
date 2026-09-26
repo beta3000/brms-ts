@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { readFieldPath } from '../../src/engine/field-access.js';
+import { isFieldReference, readFieldPath, resolveValue } from '../../src/engine/field-access.js';
+import type { Fact } from '../../src/model/fact.js';
 
 describe('readFieldPath', () => {
   const source = {
@@ -45,5 +46,71 @@ describe('readFieldPath', () => {
     expect(readFieldPath(source, '__proto__')).toBeUndefined();
     expect(readFieldPath(source, 'constructor.prototype')).toBeUndefined();
     expect(readFieldPath(source, 'address.__proto__.polluted')).toBeUndefined();
+  });
+});
+
+describe('isFieldReference', () => {
+  it('accepts an object whose only key is a non-empty $fact string', () => {
+    expect(isFieldReference({ $fact: 'address.city' })).toBe(true);
+  });
+
+  it('rejects malformed candidates', () => {
+    expect(isFieldReference({ $fact: '' })).toBe(false);
+    expect(isFieldReference({ $fact: 1 })).toBe(false);
+    expect(isFieldReference({ $fact: 'x', other: 1 })).toBe(false);
+    expect(isFieldReference({ other: 'x' })).toBe(false);
+    expect(isFieldReference(['x'])).toBe(false);
+    expect(isFieldReference('$fact')).toBe(false);
+    expect(isFieldReference(null)).toBe(false);
+    expect(isFieldReference(undefined)).toBe(false);
+  });
+});
+
+describe('resolveValue', () => {
+  const fact: Fact = {
+    type: 'Test',
+    attributes: {
+      name: 'Ada',
+      zip: null,
+      zero: 0,
+      address: { city: 'London' },
+      tags: ['a', 'b'],
+      rango: [1, 5],
+    },
+  };
+
+  it('resolves top-level and nested references', () => {
+    expect(resolveValue({ $fact: 'name' }, fact)).toBe('Ada');
+    expect(resolveValue({ $fact: 'address.city' }, fact)).toBe('London');
+    expect(resolveValue({ $fact: 'rango' }, fact)).toEqual([1, 5]);
+  });
+
+  it('returns undefined for an unresolvable or forbidden reference', () => {
+    expect(resolveValue({ $fact: 'missing' }, fact)).toBeUndefined();
+    expect(resolveValue({ $fact: 'address.country' }, fact)).toBeUndefined();
+    expect(resolveValue({ $fact: '__proto__' }, fact)).toBeUndefined();
+  });
+
+  it('preserves explicit null and falsy field values', () => {
+    expect(resolveValue({ $fact: 'zip' }, fact)).toBeNull();
+    expect(resolveValue({ $fact: 'zero' }, fact)).toBe(0);
+  });
+
+  it('returns non-reference values unchanged', () => {
+    expect(resolveValue(5, fact)).toBe(5);
+    expect(resolveValue('x', fact)).toBe('x');
+    expect(resolveValue(null, fact)).toBeNull();
+  });
+
+  it('resolves references in arrays and nested objects, materializing misses as null', () => {
+    expect(resolveValue([{ $fact: 'name' }, { $fact: 'nope' }], fact)).toEqual(['Ada', null]);
+    expect(resolveValue({ a: { $fact: 'name' }, b: [{ $fact: 'missing' }] }, fact)).toEqual({
+      a: 'Ada',
+      b: [null],
+    });
+  });
+
+  it('does not treat a malformed $fact object as a reference', () => {
+    expect(resolveValue({ $fact: '' }, fact)).toEqual({ $fact: '' });
   });
 });

@@ -20,6 +20,12 @@ describe('condition factories', () => {
     });
   });
 
+  it('compare without a value omits the value field (unary operators)', () => {
+    const condition = compare('name', 'isEmpty');
+    expect(condition).toEqual({ kind: 'comparison', field: 'name', operator: 'isEmpty' });
+    expect('value' in condition).toBe(false);
+  });
+
   it('predicate without args omits the args field', () => {
     expect(predicate('isVip')).toEqual({ kind: 'predicate', predicate: 'isVip' });
   });
@@ -78,5 +84,34 @@ describe('defineRule', () => {
       then: [],
     });
     expect(rule.salience).toBe(0);
+  });
+
+  it('preserves a single fact type selector', () => {
+    const rule = defineRule({
+      name: 'r4',
+      type: 'Order',
+      when: compare('x', 'eq', 1),
+      then: [],
+    });
+    expect(rule.type).toBe('Order');
+  });
+
+  it('preserves an array fact type selector', () => {
+    const rule = defineRule({
+      name: 'r5',
+      type: ['A', 'B'],
+      when: compare('x', 'eq', 1),
+      then: [],
+    });
+    expect(rule.type).toEqual(['A', 'B']);
+  });
+
+  it('omits the type field when not provided', () => {
+    const rule = defineRule({
+      name: 'r6',
+      when: compare('x', 'eq', 1),
+      then: [],
+    });
+    expect('type' in rule).toBe(false);
   });
 });
