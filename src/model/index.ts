@@ -4,15 +4,25 @@
  * @packageDocumentation
  */
 
-export type { Fact, FactAttributes, FactId, FactPrimitive, FactRecord, FactValue } from './fact.js';
+export type {
+  Fact,
+  FactAttributes,
+  FactId,
+  FactPrimitive,
+  FactRecord,
+  FactValue,
+  FieldReference,
+} from './fact.js';
 export type {
   AndCondition,
+  BinaryComparisonOperator,
   ComparisonCondition,
   ComparisonOperator,
   Condition,
   NotCondition,
   OrCondition,
   PredicateCondition,
+  UnaryComparisonOperator,
 } from './condition.js';
 export type { Action, InsertAction, InvokeAction, ModifyAction, RetractAction } from './action.js';
 export type { Rule, RuleInput } from './rule.js';

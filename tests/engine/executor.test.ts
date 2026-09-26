@@ -83,4 +83,60 @@ describe('executeActions', () => {
     executeActions([{ kind: 'invoke', function: 'capture' }], record, wm, registry);
     expect(receivedArgs).toEqual([]);
   });
+
+  it('invoke resolves $fact references in args and nulls unresolved ones', () => {
+    const wm = new WorkingMemory();
+    const record = bound(wm, { id: 'a1' });
+    const registry = new FunctionRegistry();
+    let receivedArgs: readonly FactValue[] = [];
+    registry.registerFunction('capture', (_facts, args) => {
+      receivedArgs = args;
+    });
+    executeActions(
+      [
+        {
+          kind: 'invoke',
+          function: 'capture',
+          args: [{ $fact: 'id' }, 'literal', { $fact: 'ghost' }],
+        },
+      ],
+      record,
+      wm,
+      registry,
+    );
+    expect(receivedArgs).toEqual(['a1', 'literal', null]);
+  });
+
+  it('insert resolves references in attribute values recursively', () => {
+    const wm = new WorkingMemory();
+    const record = bound(wm, { id: 'a1', tier: 'gold' });
+    executeActions(
+      [
+        {
+          kind: 'insert',
+          fact: {
+            type: 'Audit',
+            attributes: { applicant: { $fact: 'id' }, meta: { src: { $fact: 'tier' } } },
+          },
+        },
+      ],
+      record,
+      wm,
+      new FunctionRegistry(),
+    );
+    const audit = wm.getAll().find((f) => f.type === 'Audit');
+    expect(audit?.attributes).toEqual({ applicant: 'a1', meta: { src: 'gold' } });
+  });
+
+  it('modify merges the resolved reference value', () => {
+    const wm = new WorkingMemory();
+    const record = bound(wm, { limit: 10, ceiling: 99 });
+    executeActions(
+      [{ kind: 'modify', target: 0, attributes: { limit: { $fact: 'ceiling' } } }],
+      record,
+      wm,
+      new FunctionRegistry(),
+    );
+    expect(wm.get(record.id)?.attributes['limit']).toBe(99);
+  });
 });

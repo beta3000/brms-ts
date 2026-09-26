@@ -24,6 +24,31 @@ export type FactPrimitive = string | number | boolean | null;
 export type FactValue = FactPrimitive | FactValue[] | { readonly [key: string]: FactValue };
 
 /**
+ * Reference to a field of the fact bound to the rule.
+ *
+ * A rule value written as `{ $fact: 'path' }` is resolved, when the rule
+ * fires, against the `attributes` of the fact bound to the activation, using
+ * dot notation for nested access (for example
+ * `{ $fact: 'address.city' }`). References are accepted wherever a rule value
+ * is: the `value` of a binary comparison, `predicate` and `invoke` `args`, and
+ * the attribute values of `insert` and `modify` actions.
+ *
+ * @public
+ */
+export interface FieldReference {
+  /**
+   * Path of the referenced field within the fact attributes.
+   */
+  readonly $fact: string;
+  /**
+   * Index signature inherited from {@link FactValue}, so a field reference is
+   * structurally assignable to a rule value in any value position. At runtime
+   * a well-formed reference has `$fact` as its only key.
+   */
+  readonly [key: string]: FactValue;
+}
+
+/**
  * Set of fact attributes, indexed by field name.
  *
  * @public

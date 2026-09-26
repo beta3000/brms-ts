@@ -43,6 +43,10 @@ export interface RuleDocument {
    */
   readonly noLoop?: boolean;
   /**
+   * Optional fact type(s) the rule applies to (validated by the mapping step).
+   */
+  readonly type?: string | readonly string[];
+  /**
    * The `when` condition tree (refined by the loader mapping step).
    */
   readonly when: unknown;
@@ -76,6 +80,7 @@ export const rulesDocumentSchema: SchemaObject = {
           name: { type: 'string', minLength: 1 },
           salience: { type: 'number' },
           noLoop: { type: 'boolean' },
+          type: {},
           when: {},
           then: { type: 'array' },
         },

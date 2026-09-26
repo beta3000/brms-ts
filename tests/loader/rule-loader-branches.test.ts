@@ -127,3 +127,116 @@ describe('fact value acceptance', () => {
     expect(rules).toHaveLength(1);
   });
 });
+
+describe('type selector validation branches', () => {
+  const validWhen = { kind: 'comparison', field: 'a', operator: 'eq', value: 1 };
+
+  it.each([[5], [''], [[]], [['A', '']]])('rejects the type selector %p', (type) => {
+    const details = expectDetails({ rules: [{ name: 'r', type, when: validWhen, then: [] }] });
+    expect(details).toContain(
+      'rules[0] (r).type: "type" must be a non-empty string or a non-empty array of non-empty strings.',
+    );
+  });
+});
+
+describe('comparison value shape branches', () => {
+  const path = 'rules[0] (r).when';
+
+  it('requires a value for binary operators', () => {
+    const details = expectDetails(doc({ kind: 'comparison', field: 'a', operator: 'eq' }));
+    expect(details).toContain(`${path}: comparison "value" is required for operator "eq".`);
+  });
+
+  it('forbids a value for unary operators', () => {
+    const details = expectDetails(
+      doc({ kind: 'comparison', field: 'a', operator: 'isEmpty', value: 1 }),
+    );
+    expect(details).toContain(`${path}: operator "isEmpty" must not declare "value".`);
+  });
+
+  it('rejects a non-string startsWith value', () => {
+    const details = expectDetails(
+      doc({ kind: 'comparison', field: 'a', operator: 'startsWith', value: 5 }),
+    );
+    expect(details).toContain(
+      `${path}: comparison "value" for "startsWith" must be a string or a $fact reference.`,
+    );
+  });
+
+  it('rejects a non-string endsWith value', () => {
+    const details = expectDetails(
+      doc({ kind: 'comparison', field: 'a', operator: 'endsWith', value: true }),
+    );
+    expect(details).toContain(
+      `${path}: comparison "value" for "endsWith" must be a string or a $fact reference.`,
+    );
+  });
+
+  it.each([
+    ['', 'pattern must be a non-empty string'],
+    ['a'.repeat(257), 'pattern exceeds the 256-character limit'],
+    ['[', 'pattern is not a valid regular expression'],
+    ['(a+)+', 'catastrophic backtracking risk'],
+  ])('rejects the matches pattern %p', (value, reason) => {
+    const details = expectDetails(
+      doc({ kind: 'comparison', field: 'a', operator: 'matches', value }),
+    );
+    expect(details.some((d) => d.includes(reason))).toBe(true);
+  });
+
+  it('rejects a non-string or $fact matches pattern', () => {
+    const details = expectDetails(
+      doc({ kind: 'comparison', field: 'a', operator: 'matches', value: { $fact: 'p' } }),
+    );
+    expect(details).toContain(
+      `${path}: comparison "value" for "matches" must be a literal string pattern (no $fact references).`,
+    );
+    expect(
+      expectDetails(doc({ kind: 'comparison', field: 'a', operator: 'matches', value: 5 })),
+    ).toContain(
+      `${path}: comparison "value" for "matches" must be a literal string pattern (no $fact references).`,
+    );
+  });
+
+  it.each([[5], [[1]], [[1, 2, 3]], [['a', 1]]])('rejects the between value %p', (value) => {
+    const details = expectDetails(
+      doc({ kind: 'comparison', field: 'a', operator: 'between', value }),
+    );
+    expect(details).toContain(
+      `${path}: comparison "value" for "between" must be [min, max] with two numbers or two strings.`,
+    );
+  });
+});
+
+describe('field reference validation branches', () => {
+  const validWhen = { kind: 'comparison', field: 'a', operator: 'eq', value: 1 };
+
+  it.each([[{ $fact: '' }], [{ $fact: 1 }], [{ $fact: 'x', other: 1 }]])(
+    'rejects the malformed reference %p in a comparison value',
+    (value) => {
+      const details = expectDetails(doc({ kind: 'comparison', field: 'a', operator: 'eq', value }));
+      expect(details.some((d) => d.includes('"value"'))).toBe(true);
+    },
+  );
+
+  it('rejects a malformed reference in predicate args', () => {
+    const details = expectDetails(
+      doc({ kind: 'predicate', predicate: 'p', args: [{ $fact: '' }] }),
+    );
+    expect(details.some((d) => d.includes('"args"'))).toBe(true);
+  });
+
+  it('rejects a malformed reference in insert attributes', () => {
+    const details = expectDetails(
+      doc(validWhen, [{ kind: 'insert', fact: { type: 'F', attributes: { a: { $fact: '' } } } }]),
+    );
+    expect(details.some((d) => d.includes('"attributes"'))).toBe(true);
+  });
+
+  it('rejects a malformed reference in invoke args', () => {
+    const details = expectDetails(
+      doc(validWhen, [{ kind: 'invoke', function: 'f', args: [{ $fact: 5 }] }]),
+    );
+    expect(details.some((d) => d.includes('"args"'))).toBe(true);
+  });
+});

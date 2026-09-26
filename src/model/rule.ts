@@ -45,6 +45,11 @@ export interface Rule {
    */
   readonly noLoop: boolean;
   /**
+   * Fact type(s) the rule applies to: a single type name or a non-empty array
+   * of alternatives. When absent, the rule applies to facts of any type.
+   */
+  readonly type?: string | readonly string[];
+  /**
    * Condition that must hold for the rule to activate.
    */
   readonly when: Condition;
@@ -73,6 +78,10 @@ export interface RuleInput {
    * Optional `no-loop` flag (defaults to `false`).
    */
   readonly noLoop?: boolean;
+  /**
+   * Optional fact type(s) the rule applies to (defaults to any type).
+   */
+  readonly type?: string | readonly string[];
   /**
    * The `when` condition.
    */
@@ -106,6 +115,7 @@ export function defineRule(input: RuleInput): Rule {
     name: input.name,
     salience: input.salience ?? DEFAULT_SALIENCE,
     noLoop: input.noLoop ?? false,
+    ...(input.type === undefined ? {} : { type: input.type }),
     when: input.when,
     then: input.then,
   };
@@ -116,7 +126,8 @@ export function defineRule(input: RuleInput): Rule {
  *
  * @param field - Path of the fact field (supports dots for nesting).
  * @param operator - Comparison operator.
- * @param value - Reference value.
+ * @param value - Reference value. Required for binary operators and omitted
+ *   for the unary operators `isEmpty` and `exists`.
  * @returns The comparison condition.
  *
  * @public
@@ -124,9 +135,14 @@ export function defineRule(input: RuleInput): Rule {
 export function compare(
   field: string,
   operator: ComparisonOperator,
-  value: FactValue,
+  value?: FactValue,
 ): ComparisonCondition {
-  return { kind: 'comparison', field, operator, value };
+  return {
+    kind: 'comparison',
+    field,
+    operator,
+    ...(value === undefined ? {} : { value }),
+  };
 }
 
 /**

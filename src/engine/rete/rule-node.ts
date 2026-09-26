@@ -5,7 +5,8 @@
  * membership changes into {@link Activation} changes. When a fact enters the
  * alpha memory an activation is created; when it leaves, the activation is
  * removed. This is the bridge between the pattern-matching network and the
- * agenda.
+ * agenda. When the rule declares a fact `type` selector, facts of other types
+ * are rejected before its condition is evaluated.
  *
  * In a full RETE this terminal would sit behind a chain of beta (join) nodes
  * combining several patterns. Because a rule's `when` is evaluated against a
@@ -59,6 +60,9 @@ export class RuleNode {
    * @returns The activation changes caused by the insert.
    */
   public insert(fact: FactRecord): ActivationDelta {
+    if (!this.#matchesType(fact)) {
+      return EMPTY_DELTA;
+    }
     return this.#alpha.insert(fact) === 'added' ? this.#activate(fact) : EMPTY_DELTA;
   }
 
@@ -69,6 +73,9 @@ export class RuleNode {
    * @returns The activation changes caused by the modification.
    */
   public modify(fact: FactRecord): ActivationDelta {
+    if (!this.#matchesType(fact)) {
+      return EMPTY_DELTA;
+    }
     switch (this.#alpha.modify(fact)) {
       case 'added':
         return this.#activate(fact);
@@ -127,5 +134,20 @@ export class RuleNode {
     }
     this.#activations.delete(id);
     return { added: [], removed: [existing] };
+  }
+
+  /**
+   * Reports whether the rule's fact type selector accepts the fact.
+   *
+   * Facts of non-selected types are rejected before the condition is
+   * evaluated. A fact's type never changes once inserted, so a rejection
+   * cannot leave a stale alpha-memory entry behind.
+   */
+  #matchesType(fact: FactRecord): boolean {
+    const type = this.#rule.type;
+    if (type === undefined) {
+      return true;
+    }
+    return typeof type === 'string' ? fact.type === type : type.includes(fact.type);
   }
 }

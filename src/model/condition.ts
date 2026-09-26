@@ -11,7 +11,8 @@
 import type { FactValue } from './fact.js';
 
 /**
- * Comparison operators supported in a comparison condition.
+ * Binary comparison operators: compare the field value against the condition
+ * `value`.
  *
  * - `eq`: equal.
  * - `neq`: not equal.
@@ -21,10 +22,46 @@ import type { FactValue } from './fact.js';
  * - `lte`: less than or equal.
  * - `in`: the field value is contained in the given array.
  * - `contains`: the field value (string or array) contains the given value.
+ * - `between`: the field value lies within the inclusive `[min, max]` range.
+ * - `startsWith`: the field value (string) starts with the given string.
+ * - `endsWith`: the field value (string) ends with the given string.
+ * - `matches`: the field value (string) matches the given regular-expression
+ *   pattern.
  *
  * @public
  */
-export type ComparisonOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'contains';
+export type BinaryComparisonOperator =
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'in'
+  | 'contains'
+  | 'between'
+  | 'startsWith'
+  | 'endsWith'
+  | 'matches';
+
+/**
+ * Unary comparison operators: inspect the field value only and take no
+ * condition `value`.
+ *
+ * - `isEmpty`: the field is absent, `null`, an empty string, an empty array,
+ *   or an empty object.
+ * - `exists`: the field is present and not `null`.
+ *
+ * @public
+ */
+export type UnaryComparisonOperator = 'isEmpty' | 'exists';
+
+/**
+ * Comparison operators supported in a comparison condition.
+ *
+ * @public
+ */
+export type ComparisonOperator = BinaryComparisonOperator | UnaryComparisonOperator;
 
 /**
  * Comparison condition over a fact field.
@@ -50,8 +87,13 @@ export interface ComparisonCondition {
   readonly operator: ComparisonOperator;
   /**
    * Reference value the field is compared against.
+   *
+   * Required for {@link BinaryComparisonOperator | binary operators} and
+   * forbidden for {@link UnaryComparisonOperator | unary operators}
+   * (`isEmpty`, `exists`), which inspect the field value only. The loader
+   * enforces this; at runtime a stray `value` on a unary operator is ignored.
    */
-  readonly value: FactValue;
+  readonly value?: FactValue;
 }
 
 /**
