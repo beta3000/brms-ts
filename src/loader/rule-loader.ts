@@ -14,18 +14,24 @@ import type { ErrorObject } from 'ajv';
 import { load as loadYaml } from 'js-yaml';
 
 import { ValidationError } from '../engine/errors.js';
+import { isFieldReference } from '../engine/field-access.js';
 import type { Action } from '../model/action.js';
-import type { ComparisonOperator, Condition } from '../model/condition.js';
+import type {
+  BinaryComparisonOperator,
+  Condition,
+  UnaryComparisonOperator,
+} from '../model/condition.js';
 import type { Fact, FactAttributes, FactValue } from '../model/fact.js';
 import type { Rule } from '../model/rule.js';
 import { DEFAULT_SALIENCE } from '../model/rule.js';
+import { validateRegexPattern } from './regex-guard.js';
 import type { RulesDocument } from './schema.js';
 import { rulesDocumentSchema } from './schema.js';
 
 const ajv = new Ajv({ allErrors: true });
 const validateDocument = ajv.compile<RulesDocument>(rulesDocumentSchema);
 
-const COMPARISON_OPERATORS: ReadonlySet<string> = new Set<ComparisonOperator>([
+const BINARY_COMPARISON_OPERATORS: ReadonlySet<string> = new Set<BinaryComparisonOperator>([
   'eq',
   'neq',
   'gt',
@@ -34,6 +40,15 @@ const COMPARISON_OPERATORS: ReadonlySet<string> = new Set<ComparisonOperator>([
   'lte',
   'in',
   'contains',
+  'between',
+  'startsWith',
+  'endsWith',
+  'matches',
+]);
+
+const UNARY_COMPARISON_OPERATORS: ReadonlySet<string> = new Set<UnaryComparisonOperator>([
+  'isEmpty',
+  'exists',
 ]);
 
 /**
@@ -107,12 +122,14 @@ function mapDocument(parsed: unknown): readonly Rule[] {
 
     const when = mapCondition(rule.when, `${path}.when`, details);
     const then = mapActions(rule.then, `${path}.then`, details);
+    const type = mapType(rule.type, path, details);
 
     if (when !== undefined) {
       rules.push({
         name: rule.name,
         salience: rule.salience ?? DEFAULT_SALIENCE,
         noLoop: rule.noLoop ?? false,
+        ...(type === undefined ? {} : { type }),
         when,
         then,
       });
@@ -124,6 +141,36 @@ function mapDocument(parsed: unknown): readonly Rule[] {
   }
 
   return rules;
+}
+
+/**
+ * Validates and maps the optional fact type selector of a rule.
+ *
+ * @returns The accepted selector, or `undefined` when absent or invalid (with
+ *   a detail pushed onto `details`).
+ */
+function mapType(
+  value: unknown,
+  path: string,
+  details: string[],
+): string | readonly string[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === 'string' && value.length > 0) {
+    return value;
+  }
+  if (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item: unknown): item is string => typeof item === 'string' && item.length > 0)
+  ) {
+    return value;
+  }
+  details.push(
+    `${path}.type: "type" must be a non-empty string or a non-empty array of non-empty strings.`,
+  );
+  return undefined;
 }
 
 /**
@@ -177,22 +224,106 @@ function mapComparison(
     details.push(`${path}: comparison "field" must be a non-empty string.`);
     return undefined;
   }
-  if (typeof operator !== 'string' || !COMPARISON_OPERATORS.has(operator)) {
+  if (typeof operator !== 'string' || !isComparisonOperator(operator)) {
     details.push(
-      `${path}: comparison "operator" must be one of ${[...COMPARISON_OPERATORS].join(', ')}.`,
+      `${path}: comparison "operator" must be one of ${[...BINARY_COMPARISON_OPERATORS, ...UNARY_COMPARISON_OPERATORS].join(', ')}.`,
     );
     return undefined;
   }
-  if (!isFactValue(node['value'])) {
+  if (UNARY_COMPARISON_OPERATORS.has(operator)) {
+    if ('value' in node) {
+      details.push(`${path}: operator "${operator}" must not declare "value".`);
+      return undefined;
+    }
+    return { kind: 'comparison', field, operator: operator as UnaryComparisonOperator };
+  }
+  if (!('value' in node)) {
+    details.push(`${path}: comparison "value" is required for operator "${operator}".`);
+    return undefined;
+  }
+  const value = node['value'];
+  if (!isRuleValue(value)) {
     details.push(`${path}: comparison "value" must be a valid fact value.`);
     return undefined;
   }
-  return {
-    kind: 'comparison',
-    field,
-    operator: operator as ComparisonOperator,
-    value: node['value'],
-  };
+  if (!isValidValueForOperator(operator as BinaryComparisonOperator, value, path, details)) {
+    return undefined;
+  }
+  return { kind: 'comparison', field, operator: operator as BinaryComparisonOperator, value };
+}
+
+/**
+ * Determines whether a string is a known comparison operator.
+ */
+function isComparisonOperator(operator: string): boolean {
+  return BINARY_COMPARISON_OPERATORS.has(operator) || UNARY_COMPARISON_OPERATORS.has(operator);
+}
+
+/**
+ * Applies the operator-specific shape rules to a comparison value.
+ *
+ * @returns `true` when the value is acceptable (with a detail pushed onto
+ *   `details` otherwise).
+ */
+function isValidValueForOperator(
+  operator: BinaryComparisonOperator,
+  value: FactValue,
+  path: string,
+  details: string[],
+): boolean {
+  switch (operator) {
+    case 'startsWith':
+    case 'endsWith':
+      if (typeof value !== 'string' && !isFieldReference(value)) {
+        details.push(
+          `${path}: comparison "value" for "${operator}" must be a string or a $fact reference.`,
+        );
+        return false;
+      }
+      return true;
+    case 'matches': {
+      if (typeof value !== 'string') {
+        details.push(
+          `${path}: comparison "value" for "matches" must be a literal string pattern (no $fact references).`,
+        );
+        return false;
+      }
+      const problem = validateRegexPattern(value);
+      if (problem !== undefined) {
+        details.push(`${path}.value: ${problem}`);
+        return false;
+      }
+      return true;
+    }
+    case 'between':
+      if (!isFieldReference(value) && !isBetweenRange(value)) {
+        details.push(
+          `${path}: comparison "value" for "between" must be [min, max] with two numbers or two strings.`,
+        );
+        return false;
+      }
+      return true;
+    default:
+      return true;
+  }
+}
+
+/**
+ * Determines whether a rule value is a valid `[min, max]` range of two numbers
+ * or two strings.
+ */
+function isBetweenRange(value: FactValue): boolean {
+  if (!Array.isArray(value) || value.length !== 2) {
+    return false;
+  }
+  const [min, max] = value;
+  if (min === undefined || max === undefined) {
+    return false;
+  }
+  return (
+    (typeof min === 'number' && typeof max === 'number') ||
+    (typeof min === 'string' && typeof max === 'string')
+  );
 }
 
 /**
@@ -275,7 +406,7 @@ function mapAction(node: unknown, path: string, details: string[]): Action | und
     case 'modify': {
       const target = mapTarget(node['target'], path, details);
       const attributes = node['attributes'];
-      if (!isRecord(attributes) || !isFactAttributes(attributes)) {
+      if (!isRecord(attributes) || !isRuleAttributes(attributes)) {
         details.push(`${path}: modify "attributes" must be an object of fact values.`);
         return undefined;
       }
@@ -325,7 +456,7 @@ function mapFact(node: unknown, path: string, details: string[]): Fact | undefin
     return undefined;
   }
   const attributes = node['attributes'];
-  if (!isRecord(attributes) || !isFactAttributes(attributes)) {
+  if (!isRecord(attributes) || !isRuleAttributes(attributes)) {
     details.push(`${path}: fact "attributes" must be an object of fact values.`);
     return undefined;
   }
@@ -345,7 +476,7 @@ function mapArgs(
   if (value === undefined) {
     return [];
   }
-  if (!Array.isArray(value) || !value.every(isFactValue)) {
+  if (!Array.isArray(value) || !value.every(isRuleValue)) {
     details.push(`${path}: "args" must be an array of fact values.`);
     return undefined;
   }
@@ -353,9 +484,14 @@ function mapArgs(
 }
 
 /**
- * Type guard for {@link FactValue}.
+ * Type guard for a rule value: a {@link FactValue} or a well-formed
+ * {@link FieldReference}.
+ *
+ * An object carrying a `$fact` key is only accepted when it is a valid
+ * reference (`$fact` as a non-empty string and no other keys); any other use
+ * of the reserved key is rejected.
  */
-function isFactValue(value: unknown): value is FactValue {
+function isRuleValue(value: unknown): value is FactValue {
   if (value === null) {
     return true;
   }
@@ -366,17 +502,21 @@ function isFactValue(value: unknown): value is FactValue {
       return true;
     case 'object':
       if (Array.isArray(value)) {
-        return value.every(isFactValue);
+        return value.every(isRuleValue);
       }
-      return isFactAttributes(value as Record<string, unknown>);
+      return isRuleAttributes(value as Record<string, unknown>);
     default:
       return false;
   }
 }
 
 /**
- * Type guard for {@link FactAttributes}.
+ * Type guard for a rule attributes object: every value is a rule value, and a
+ * `$fact` key is only accepted when it forms a valid field reference.
  */
-function isFactAttributes(value: Record<string, unknown>): value is FactAttributes {
-  return Object.values(value).every(isFactValue);
+function isRuleAttributes(value: Record<string, unknown>): value is FactAttributes {
+  if (Object.prototype.hasOwnProperty.call(value, '$fact')) {
+    return isFieldReference(value as FactValue);
+  }
+  return Object.values(value).every(isRuleValue);
 }
